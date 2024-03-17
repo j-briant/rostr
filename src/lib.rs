@@ -1,61 +1,82 @@
-use gdal::{spatial_ref::SpatialRef, Dataset, DriverManager, GeoTransform};
-use std::panic;
+use std::error::Error;
+use std::fmt::Display;
 
-struct RostrDataset{
-    data: Dataset,
-    metadata: RostrMetadata
+use serde::Deserialize;
+use serde_json;
+
+use gdal::Dataset;
+
+// Core object of the module, Configuration holds validated fields.
+#[derive(Deserialize, Debug, PartialEq)]
+struct Configuration {
+    operation: Operation,
+    src_dataset: SourceURI,
+    dst_dataset: String,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct RostrMetadata {
-    geotransform: GeoTransform,
-    projection: String,
-    spatial_ref: SpatialRef,
-    size: (usize, usize)
+impl Configuration {
+    fn from_str(s: &str) -> Result<Configuration, serde_json::Error> {
+        let conf: Configuration = serde_json::from_str::<Configuration>(s)?;
+        Ok(conf)
+    }
 }
 
+// Error type for the module.
 #[derive(Debug)]
-pub enum MetadataError {
-    DatasetError(String)
-} 
+enum ConfigurationError {
+    OperationError,
+    ConnectionError,
+}
 
-
-impl RostrMetadata {
-    fn from(dst: &Dataset) -> Result<Self, MetadataError> {
-        let result = panic::catch_unwind(|| {
-            dst.geo_transform();
-            dst.spatial_ref()
-        });
-        if result.is_ok() {
-            if let (Ok(gt), Ok(sr)) = (dst.geo_transform(), dst.spatial_ref()) {
-                Ok(RostrMetadata{
-                    geotransform: gt,
-                    projection: dst.projection(),
-                    spatial_ref: sr,
-                    size: dst.raster_size()
-                })
-            } else {
-                Err(MetadataError::DatasetError("Error while getting metadata from the dataset.".into()))
+impl Display for ConfigurationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            ConfigurationError::OperationError => write!(
+                f,
+                "Given operation is invalid, must be one of 'overwrite', 'update' or 'upsert'"
+            ),
+            ConfigurationError::ConnectionError => {
+                write!(f, "Dataset not reachable, please check the given URI")
             }
-        } else {
-            Err(MetadataError::DatasetError("Error while getting metadata from the dataset.".into()))
         }
     }
+}
 
-    fn geotransform(&self) -> &[f64; 6] {
-        &self.geotransform
+impl Error for ConfigurationError {}
+
+// Operations are the valid GDAL/OGR operation possible on a dataset (update, overwrite etc.)
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum Operation {
+    Overwrite,
+    Update,
+    Upsert,
+}
+
+impl Operation {
+    fn from_str(s: &str) -> Result<Operation, ConfigurationError> {
+        match s {
+            "overwrite" => Ok(Operation::Overwrite),
+            "update" => Ok(Operation::Update),
+            "upsert" => Ok(Operation::Upsert),
+            _ => Err(ConfigurationError::OperationError),
+        }
     }
+}
 
-    fn projection(&self) -> &str {
-        &self.projection
-    }
+#[derive(Deserialize, Debug, PartialEq)]
+struct SourceURI {
+    path: String,
+}
 
-    fn spatial_ref(&self) -> &SpatialRef {
-        &self.spatial_ref
-    }
-
-    fn size(&self) -> &(usize, usize) {
-        &self.size
+impl SourceURI {
+    fn from_str(p: &str) -> Result<SourceURI, ConfigurationError> {
+        match gdal::Dataset::open(p) {
+            Ok(d) => Ok(SourceURI {
+                path: p.to_string(),
+            }),
+            Err(_) => Err(ConfigurationError::ConnectionError),
+        }
     }
 }
 
@@ -64,14 +85,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_metadata_from() {
-        let drv = DriverManager::get_driver_by_name("MEM").unwrap();
-        let ds = drv.create("", 5, 5, 1).unwrap();
-        assert_eq!(RostrMetadata::from(&ds).expect("Error while loading metadata"), RostrMetadata{
-            geotransform: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            projection: "".into(),
-            spatial_ref: SpatialRef::new().unwrap(),
-            size: (5, 5)
-        });
+    fn test_connection() {
+        let path = "PG:\"dbname=osm_suisse\"";
+        let uri = SourceURI::from_str(&path).unwrap();
+        assert_eq!(uri.path, path);
+    }
+
+    #[test]
+    fn configuration_from_str() {
+        let input = "
+            {
+                \"operation\": \"update\",
+                \"src_dataset\": \"PG:dbname=osm_suisse tables=planet_osm_line\",
+                \"dst_dataset\": \"localhost::dst_dataset\"
+            }";
+        assert_eq!(
+            Configuration::from_str(&input).unwrap(),
+            Configuration {
+                operation: Operation::Update,
+                src_dataset: SourceURI::from_str("PG:dbname=osm_suisse tables=planet_osm_line").unwrap(),
+                dst_dataset: String::from("localhost:dst_dataset"),
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn err_on_missing_field() {
+        // Missing src_dataset
+        let input = "
+            {
+                \"operation\": \"update\",
+                \"dst_dataset\": \"localhost::dst_dataset\"
+            }";
+        Configuration::from_str(&input).unwrap();
     }
 }
