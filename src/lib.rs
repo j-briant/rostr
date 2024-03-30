@@ -1,3 +1,5 @@
+pub mod uri;
+
 use std::error::Error;
 use std::fmt::Display;
 
@@ -71,11 +73,16 @@ struct SourceURI {
 
 impl SourceURI {
     fn from_str(p: &str) -> Result<SourceURI, ConfigurationError> {
-        match gdal::Dataset::open(p) {
+        let opt = gdal::DatasetOptions {
+            open_flags: gdal::GdalOpenFlags::GDAL_OF_ALL,
+            allowed_drivers: Some(&["PostgreSQL"]),
+            ..Default::default()
+        };
+        match gdal::Dataset::open_ex(p, opt) {
             Ok(d) => Ok(SourceURI {
                 path: p.to_string(),
             }),
-            Err(_) => Err(ConfigurationError::ConnectionError),
+            Err(e) => Err(ConfigurationError::ConnectionError),
         }
     }
 }
@@ -86,24 +93,25 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let path = "PG:\"dbname=osm_suisse\"";
+        let path = "PG:dbname=osm_suisse tables=planet_osm_line";
         let uri = SourceURI::from_str(&path).unwrap();
         assert_eq!(uri.path, path);
     }
 
     #[test]
     fn configuration_from_str() {
-        let input = "
+        let input = r#"
             {
-                \"operation\": \"update\",
-                \"src_dataset\": \"PG:dbname=osm_suisse tables=planet_osm_line\",
-                \"dst_dataset\": \"localhost::dst_dataset\"
-            }";
+                "operation": "update",
+                "src_dataset": "PG:dbname=osm_suisse tables=planet_osm_line",
+                "dst_dataset": "localhost::dst_dataset"
+            }"#;
+        let uri = SourceURI::from_str("PG:dbname=osm_suisse tables=planet_osm_line").unwrap();
         assert_eq!(
             Configuration::from_str(&input).unwrap(),
             Configuration {
                 operation: Operation::Update,
-                src_dataset: SourceURI::from_str("PG:dbname=osm_suisse tables=planet_osm_line").unwrap(),
+                src_dataset: uri,
                 dst_dataset: String::from("localhost:dst_dataset"),
             }
         );

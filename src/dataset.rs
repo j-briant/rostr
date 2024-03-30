@@ -19,6 +19,8 @@ pub enum MetadataError {
     DatasetError(String),
 }
 
+fn test() {}
+
 impl RostrMetadata {
     fn from(dst: &Dataset) -> Result<Self, MetadataError> {
         let result = panic::catch_unwind(|| {
