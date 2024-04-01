@@ -1,9 +1,30 @@
 pub mod driver;
+pub mod option;
 
-use gdal::{errors::GdalError, Dataset, DatasetOptions, DriverManager, GdalOpenFlags};
+use gdal::{errors::GdalError, Dataset, DatasetOptions, GdalOpenFlags};
+use serde::Deserialize;
 
-struct SourceURI {
+trait Connection {
+    fn touch(&self) -> bool;
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SourceURI {
     path: String,
+}
+
+#[derive(Debug)]
+pub struct DestinationURI {
+    path: String,
+}
+
+impl Connection for SourceURI {
+    fn touch(&self) -> bool {
+        match Dataset::open_ex(self.path, self.options) {
+            Ok(_) => true,
+            _ => false,
+        }
+    }
 }
 
 // Error type for URI.
@@ -13,7 +34,7 @@ enum UriError {
 }
 
 impl SourceURI {
-    fn from_str(p: &str) -> Result<SourceURI, UriError> {
+    pub fn from_str(p: &str) -> Result<SourceURI, UriError> {
         let opt = DatasetOptions {
             open_flags: GdalOpenFlags::GDAL_OF_ALL,
             allowed_drivers: Some(&[]),
