@@ -1,14 +1,16 @@
 use std::fmt::Display;
-
+use serde::Deserialize;
+use serde_json;
 use gdal::errors::GdalError;
 use gdal::DriverManager;
 
 /// GDAL has a certain number of drivers accessible depending on how it's installed. DriverList is just here to store the number of drivers and their list.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct DriverList {
     count: usize,
     list: Vec<String>,
 }
+
 
 impl DriverList {
     /// Get the driver list from the environment.
@@ -36,6 +38,7 @@ impl Display for DriverList {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,4 +54,16 @@ mod tests {
         let drivers = DriverList::get().unwrap();
         println!("{drivers}");
     }
+
+    #[test]
+    fn test_datasetoption_from_string() {
+        let opt = r#"
+            {
+                "open_flags": "GDAL_OF_ALL",
+            }
+        "#;
+        let drivers = DriverList::get().unwrap();
+        println!("{drivers}");
+    }
+
 }

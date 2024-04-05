@@ -8,12 +8,13 @@ trait Connection {
     fn touch(&self) -> bool;
 }
 
-#[derive(Debug, Deserialize)]
-pub struct SourceURI {
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct SourceURI<'a> {
     path: String,
+    options: DatasetOptions<'a>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct DestinationURI {
     path: String,
 }
@@ -57,9 +58,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_connection() {
+    fn uri_test_connection() {
         let path = "PG:dbname=osm_suisse tables=planet_osm_line";
         let uri = SourceURI::from_str(&path).unwrap();
         assert_eq!(uri.path, path);
+    }
+
+    #[test]
+    fn uri_test_connection_error() {
+        let path = "PG:dbname=osm_susse tables=planet_osm_line";
+        let error = SourceURI::from_str(&path).map_err(|e| e.kind());
+        assert_eq!(error, UriError::ConnectionError);
     }
 }

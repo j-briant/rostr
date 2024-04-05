@@ -1,0 +1,92 @@
+[
+    {
+        "id": 1,
+        "parallel": true,
+        "transfer": [
+            {
+                "id": 1,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["TRUNCATE=1", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            },
+            {
+                "id": 2,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["option2", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            }
+        ]
+    },
+    {
+        "id": 2,
+        "parallel": true,
+        "transfer": [
+            {
+                "id": 1,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["option2", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            },
+            {
+                "id": 2,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["option2", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "parallel": true,
+        "transfer": [
+            {
+                "id": 1,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["option2", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            },
+            {
+                "id": 2,
+                "operation": "overwrite",
+                "src": {
+                    "path": "my/path/",
+                    "option": ["option2", "option3"]
+                },
+                "dst": {
+                    "path": "my/destination",
+                    "option": ["option2", "option3"]
+                }
+            }
+        ]
+    }
+]
