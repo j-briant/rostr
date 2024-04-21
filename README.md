@@ -15,8 +15,6 @@ And that's basically it.
 
 Most of the job resides in a coherent configuration management.
 
-For people unfortunately too familiar with FME, if most of the jobs are data translation then one of the objective is to give an alternative.
-
 ## Misc
 
 It's early af to be here.
