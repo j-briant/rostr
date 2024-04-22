@@ -4,17 +4,59 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use thiserror::Error;
+use gdal::{DriverManager, GdalOpenFlags};
+use gdal::errors::GdalError;
 
-/// A data Source passed to GDAL to read the data. Can be vector or raster.
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Source {
-    pub path: String,
-    pub option: Vec<String>,
+const DRIVER_LIST: Vec<&str> = drivers().unwrap();
+//const DRIVER_SIZE: usize = DRIVER_LIST.len();
+//const DRIVER_ARRAY: [&str, DRIVER_SIZE] = DRIVER_LIST.iter().collect();
+
+pub fn drivers() -> Result<Vec<&'static str>, GdalError> {
+    DriverManager::register_all();
+    let count = DriverManager::count();
+    let mut list: Vec<&'static str> = vec![];
+    for i in 0..count {
+        list.push(&DriverManager::get_driver(i)?.short_name())
+    }
+    Ok(list)
 }
 
-impl Display for Source {
+/// A data Source passed to GDAL to read the data. Can be vector or raster. Corresponds to the configuration structure.
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct Source<'a> {
+    pub path: String,
+    pub option: Vec<&'a str>,
+}
+
+impl Display for Source<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Source ({}, {:?})", self.path, self.option)
+    }
+}
+
+pub struct RostrDatasetOption<'a>(gdal::DatasetOptions<'a>);
+
+impl TryFrom<Vec<&str>> for RostrDatasetOption<'_> {
+    type Error = gdal::errors::GdalError;
+
+    fn try_from(s: Vec<&str>) -> Result<Self, Self::Error> {
+        Ok(RostrDatasetOption(gdal::DatasetOptions { 
+            open_flags: GdalOpenFlags::GDAL_OF_ALL, 
+            allowed_drivers: Some(&DRIVER_LIST[..]), 
+            open_options: Some(&s), 
+            sibling_files: None }))
+    }
+}
+
+pub struct RostrSource(gdal::Dataset);
+
+impl TryFrom<Source<'_>> for RostrSource {
+    type Error = gdal::errors::GdalError;
+
+    fn try_from(s: Source) -> Result<Self, Self::Error> {
+        let my_opt: RostrDatasetOption = s.option.try_into()?;
+        let rs = RostrSource(gdal::Dataset::open_ex(s.path, s.option)?);
+        Ok(rs)
     }
 }
 
